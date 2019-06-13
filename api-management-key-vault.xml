@@ -1,0 +1,36 @@
+<policies>
+    <inbound>
+        <base />
+
+        <!-- Retrieve the secret from Key Vault using a managed identity -->
+        <send-request mode="new" response-variable-name="secretResponse" timeout="20" ignore-error="false">
+            <set-url>{{vaultBaseUrl}}/secrets/{{secret-name}}/?api-version=7.0</set-url>
+            <set-method>GET</set-method>
+            <authentication-managed-identity resource="https://vault.azure.net" />
+        </send-request>
+
+        <!-- Place the secret into a local variable -->
+        <set-variable name="secret" value="@{
+            var secret = ((IResponse)context.Variables["secretResponse"]).Body.As<JObject>();
+            return secret["value"].ToString();
+        }" />
+        
+        <!-- Remove the subscription key from the header -->
+        <set-header name="Ocp-Apim-Subscription-Key" exists-action="delete" />
+        
+        <!-- Use the password in the header -->
+        <authentication-basic username="zohan" password="@((string)context.Variables["secret"])" />
+        <rewrite-uri template="?item={id}" />
+        <set-backend-service base-url="https://httpbin.org/get" />
+                
+    </inbound>
+    <backend>
+        <base />
+    </backend>
+    <outbound>
+        <base />
+    </outbound>
+    <on-error>
+        <base />
+    </on-error>
+</policies>
